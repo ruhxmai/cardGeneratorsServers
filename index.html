@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <title>Генератор приглашений — Ключи Форта</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+  <script src="cyrillicolda_bold-normal.js"></script>
+
+  <style>
+    * {
+      box-sizing: border-box;
+      font-family: 'cirillicolda', 'Montserrat', sans-serif;
+    }
+
+    @font-face {
+      font-family:'cirillicolda';
+      src: url("font/Olympia Deco.ttf") format("truetype");
+      font-weight: 900;
+    }
+
+    body {
+      margin: 0;
+      background: url('background.jpg') center/cover no-repeat fixed;
+      /* Добавим цвет фона на случай, если картинка не прогрузится */
+      background-color: #f4efe9; 
+    }
+
+    /* 2. АДАПТИВНАЯ ШАПКА */
+    header {
+      background: #6c482e;
+      color: #fff;
+      padding: 15px;
+      display: flex; /* Используем flex вместо grid для гибкости */
+      flex-direction: row;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap; /* Разрешаем перенос */
+      gap: 15px;
+    }
+
+    header img { 
+      height: 60px; /* Чуть меньше для мобилок */
+      order: 0;
+    }
+    
+    header .title {
+      font-size: 22px;
+      white-space: nowrap;
+    }
+
+    /* 3. КОНТЕЙНЕР */
+    .container {
+      max-width: 1200px;
+      margin: 20px auto;
+      padding: 20px; /* Меньше отступы на моб */
+      background: rgba(245, 240, 235, 0.96);
+      border-radius: 14px;
+      box-shadow: 0 5px 20px rgba(0, 0, 0, 0.15);
+    }
+
+    .container_block {
+      display: flex;
+      justify-content: space-between;
+      gap: 40px; /* Отступ между формой и превью */
+    }
+    
+    /* Блок с формой */
+    .form-wrapper {
+        flex: 1;
+        min-width: 300px;
+    }
+
+    h1 {
+      text-align: center;
+      font-size: 24px;
+      line-height: 0.9;
+      margin-bottom: 10px;
+      color: #3e2b22;
+    }
+    
+    p.subtitle {
+        text-align: left;
+        margin-bottom: 10px;
+         margin-left: 20px;
+      
+        font-size: 18px;
+        color: #555;
+    }
+
+    label { 
+        display: block; 
+        margin-top: 15px; 
+        font-weight: 600; 
+        margin-bottom: 5px;
+        color: #3e2b22;
+    }
+
+    /* 4. ПОЛЯ ВВОДА (ВАЖНО ДЛЯ IOS) */
+    input, select, textarea {
+      width: 100%;
+      padding: 12px;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+      background: #fff;
+      font-size: 16px; /* 16px предотвращает зум на iPhone */
+      color: #000;
+      
+    }
+    
+    input:focus, select:focus, textarea:focus {
+        outline: none;
+        border-color: #6c482e;
+        box-shadow: 0 0 0 2px rgba(108, 72, 46, 0.2);
+    }
+
+    textarea { min-height: 120px; resize: vertical; }
+
+    button {
+      margin-top: 25px;
+      padding: 16px;
+      width: 100%;
+      border-radius: 10px;
+      border: none;
+      background: #6c482e;
+      color: #fff;
+      font-weight: 700;
+      font-size: 16px;
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      transition: background 0.3s;
+    }
+    button:active { background: #503622; transform: scale(0.98); }
+
+    /* 5. ПРЕВЬЮ КАРТОЧКИ (САМОЕ ВАЖНОЕ) */
+    .preview-wrapper { 
+        display: flex; 
+        justify-content: center;
+        /* Создаем пространство, чтобы scale не обрезался */
+        overflow: visible; 
+    }
+
+    .card {
+      /* Фиксированные размеры оригинала */
+      width: 504px;
+      height: 720px;  
+      position: relative;
+      background-size: contain;
+      background-position: center;
+      background-repeat: no-repeat;
+      
+      background-color: transparent; /* Белый фон пока грузится картинка */
+      flex-shrink: 0; /* Запрещаем сжимать блок flex-ом */
+    }
+
+    .field {
+      position: absolute;
+      left: 48px;
+      right: 48px;
+      text-align: center;
+      font-weight: 600;
+      opacity: 0;
+      color: #000; /* Принудительно черный для превью */
+      pointer-events: none; /* Чтобы текст не мешал кликам (если вдруг) */
+    }
+
+    .address-text {
+      text-align: left;
+      padding-left: 50px;
+      text-indent: 215px;
+      line-height: 1.92;
+      font-size: 15px;
+    }
+    
+    
+    /* =========================================
+       МЕДИА-ЗАПРОСЫ (АДАПТИВНОСТЬ)
+       ========================================= */
+       
+    /* Планшеты и узкие десктопы */
+    @media (max-width: 950px) {
+      .container_block { 
+        flex-direction: column; /* Ставим форму над превью */
+        align-items: center;
+      }
+      .form-wrapper { width: 100%; }
+      
+      /* Немного уменьшаем карточку */
+      .card { transform: scale(0.9); transform-origin: top center; margin-bottom: -70px; }
+    }
+
+    /* Мобильные телефоны (до 600px) */
+    @media (max-width: 600px) {
+      .container { padding: 15px; width: 95%; margin: 10px auto; }
+      
+      header {
+          flex-direction: column;
+          text-align: center;
+      }
+      header img { order: -1; margin-bottom: 10px; } /* Логотип сверху */
+      
+      /* Сжимаем карточку сильно, чтобы влезла */
+      .card { 
+          transform: scale(0.65); 
+          transform-origin: top center; 
+          /* Компенсируем пустое место снизу после уменьшения (720 * 0.35 ≈ 250) */
+          margin-bottom: -230px; 
+          margin-top: 20px;
+      }
+      
+      h1 { font-size: 20px; }
+      p.subtitle { font-size: 16px ;
+      align-self: left; }
+    }
+
+    /* Очень маленькие экраны (iPhone SE, старые Android) */
+    @media (max-width: 380px) {
+       .card { 
+          transform: scale(0.55); 
+          margin-bottom: -300px; 
+       }
+    }
+
+    body, input, button, select, label, h1, p, option,textarea {
+    font-family: 'Montserrat', sans-serif !important;
+}
+
+/* Оставляем старый шрифт ТОЛЬКО в карточке */
+    .card, .field {
+    /* Замените 'serif' на ваш конкретный шрифт для карточки, 
+       если у вас подключен другой (например, 'Oswald' или 'Caveat') */
+      font-family: inherit; 
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="title">Квест-шоу</div>
+  <img src="logo.png" alt="Ключи Форта">
+  <div class="title">Ключи Форта</div>
+</header>
+
+<div class="container">
+  <div>
+    <h1>Электронные пригласительные на Квест-шоу  с индивидуальным дизайном</h1>
+    <p class="subtitle" align="left">Создайте персональные пригласительные для каждого участника на День рождения или любой другой повод!</p>
+  </div>
+  
+  <div class="container_block">
+    <div class="form-wrapper">
+        <form id="form">
+          <label>Вариант приглашения</label>
+          <select id="type" required>
+            <option value="">— выберите —</option>
+            <option value="kid">Приглашение на детский День рождения</option>
+            <option value="adult">Приглашение на взрослый День рождения</option>
+            <option value="school">Приглашение на Выпускной 4, 9, 11 класс</option>
+            <option value="kindergarten">Приглашение на Выпускной для детского сада</option>
+            <option value="trip">Приглашение на Поход классом</option>
+            <option value="corporate">Приглашение на Корпоратив</option>
+          </select>
+      
+          <div id="dynamic-fields"></div>
+      
+          <label>Выберите место проведения квест-игры:</label>
+          <select id="address" required>
+            <option value="г. Москва, Варшав- ское шоссе, д.95 к.1, ТК «Аэробус», 3-й этаж">
+              г. Москва, Варшавское шоссе, д.95 к.1, ТК «Аэробус», 3-й этаж
+            </option>
+          </select>
+      
+          <input id="customAddress" placeholder="Введите новый адрес" style="display:none; margin-top:8px;">
+      
+          <label>Дата:</label>
+          <input type="date" id="date" required>
+      
+          <label>Время начала</label>
+          <input type="time" id="time" required>
+      
+          <label>Приглашенные в именительном падеже <br> (каждое имя с новой строки)</label>
+          <textarea id="names" required></textarea>
+      
+          <button type="button" id="download">Скачать приглашения</button>
+        </form>
+    </div>
+  
+    <div class="preview-wrapper">
+      <div class="card" id="card">
+        <div class="field" id="invite"></div>
+        <div class="field address-text" id="addressField"></div>
+        <div class="field" id="dateField"></div>
+        <div class="field" id="field1"></div>
+        <div class="field" id="field2"></div>
+        <div class="field" id="timeField"></div>
+        <div class="field" id="eventNameField"></div>
+        
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ==============================================
+   РЕГИСТРАЦИЯ КАСТОМНОГО ШРИФТА
+   ============================================== */
+(function(jsPDF) {
+  const registerCustomFont = function() {
+    // Проверка, загрузилась ли переменная font
+    if (typeof font !== 'undefined') {
+        this.addFileToVFS('cyrillicolda_bold-normal.ttf', font);
+        this.addFont('cyrillicolda_bold-normal.ttf', 'cyrillicolda', 'bold');
+    } else {
+        console.warn("Шрифт cyrillicolda не найден. Убедитесь, что файл js подключен.");
+    }
+  };
+  jsPDF.API.events.push(['addFonts', registerCustomFont]);
+})(jspdf.jsPDF);
+
+/* ==============================================
+   НАСТРОЙКИ ШАБЛОНОВ
+   ============================================== */
+
+const TEMPLATES = {
+   kid: {
+    bg: 'kid.png',
+     invite: { top: 240,left: 220,size: 20  },
+    address: { top: 358, left: 17,},
+    date: { top: 420, left: 145, align: "left" },
+    time: { top: 449, left: 70 },
+    eventName: { top: 525, left: 53,size: 18 } },
+  adult: { 
+    bg: 'adult.png',
+    invite: { top: 243,left: 223, size: 20  },  
+    address: { top: 363, left: 20 }, 
+    date: { top: 425, left: 145,align: "left" },
+    time: { top: 454, left: 70 },
+    eventName: { top: 534, left: 43, size: 18 }
+  },
+  school: { 
+    bg: 'school.png', 
+    invite: { top: 263,left: 48,size: 20  }, 
+    address: { top: 397, left: 15 }, 
+    date: { top: 459, left: 145,align: "left" },
+    time: { top: 488, left: 70 },
+    field1: { top: 296, left: -53 },    
+    field2: { top: 294, left: 370 }     
+  },
+  kindergarten: { 
+    bg: 'kindergarten.png', 
+    invite: { top: 263,left: 37,size: 20  }, 
+    address: { top: 406, left: 20 },  
+    date: { top: 470, left: 145,align: "left" },
+    time: { top: 499, left: 70 },
+    field1: { top: 297, left:310 },    
+    field2: { top: 325, left: -140 }     
+  },
+  trip: { 
+    bg: 'trip.png', 
+     invite: { top: 263,left: 45,size: 20  }, 
+    address: { top: 409, left: 15 }, 
+    date: { top: 471, left: 145,align: "left"},
+    time: { top: 501, left: 70 },
+     field1: { top: 297, left: -50 },    
+    field2: { top: 296, left: 350 }     
+  },
+  corporate: {
+    bg: 'corporate.png', 
+    invite: { top: 239,left: 40,size: 20  },
+    address: { top: 392, left: 20 },
+    date: { top: 455, left: 145,align: "left" },
+    time: { top: 484, left: 70 },
+    guest: { top: 260, left: 40 },
+    eventName: {  top: 303,left: 40,size: 20 }
+  }
+};
+
+const EXPORT_CONFIG = {
+    canvasWidth: 1000,
+    canvasHeight: 1428,
+   
+    kid: {
+        invite:    { x: 670, y: 479, size: 40, align: 'center' },
+        address:   { x: 560, y: 725, size: 28, align: 'center' },
+        date:      { x: 280, y: 844, size: 30, align: 'left' },
+        time:      { x: 480, y: 903, size: 30, align: 'left' },
+        eventName: { x: 500, y: 1058, size: 36, align: 'center' }
+    },
+    adult: {
+        invite:    { x: 489, y: 483, size: 40, align: 'left' },
+        address:   { x: 567, y: 735, size: 28, align: 'left' },
+        date:      { x: 282, y: 853, size: 30, align: 'left' },
+        time:      { x: 475, y: 912, size: 30, align: 'left' },
+        eventName: { x: 500, y: 1076, size: 36, align: 'center' }
+    },
+    school: {
+        invite:  { x: 500, y: 530, size: 35, align: 'center' },
+        field1:  { x: 400, y: 595, size: 28, align: 'center' },
+        field2:  { x: 818, y: 590, size: 28, align: 'center' },
+        address: { x: 567, y: 806, size: 28, align: 'center' },
+        date:    { x: 280, y: 924, size: 30, align: 'left' },
+        time:    { x: 470, y: 983, size: 30, align: 'left' }
+    },
+    kindergarten: {
+        invite:  { x: 500, y: 530, size: 35, align: 'center' },
+        field1:  { x: 765, y: 593, size: 28, align: 'center' },
+        field2:  { x: 315, y: 652, size: 28, align: 'center' },
+        address: { x: 575, y: 825, size: 28, align: 'center' },
+        date:    { x: 280, y: 946, size: 30, align: 'left' },
+        time:    { x: 470, y: 1006, size: 30, align: 'left' }
+    },
+    trip: { 
+        invite:  { x: 500, y: 529, size: 35, align: 'center' },
+        field1:  { x: 402, y: 595, size: 28, align: 'center' },
+        field2:  { x: 800, y: 594, size: 28, align: 'center' },
+        address: { x: 567, y: 830, size: 28, align: 'center' },
+        date:    { x: 281, y: 949, size: 30, align: 'left' },
+        time:    { x: 471, y: 1008, size: 30, align: 'left' }
+    },
+    corporate: { 
+        invite:    { x: 501, y: 476, size: 40, align: 'center' }, 
+        address:   { x: 570, y: 795, size: 28, align: 'center' }, 
+        date:      { x: 280, y: 914, size: 30, align: 'left' }, 
+        time:      { x: 472, y: 973, size: 30, align: 'left' },
+        eventName: { x: 501, y: 606, size: 38, align: 'center' }  
+    },
+  }
+
+const typeEl = document.getElementById('type');
+const dynamicFields = document.getElementById('dynamic-fields');
+const card = document.getElementById('card');
+const inviteEl = document.getElementById('invite');
+const addressSelect = document.getElementById('address');
+const customAddressInput = document.getElementById('customAddress');
+const addressField = document.getElementById('addressField');
+const dateField = document.getElementById('dateField');
+const dateEl = document.getElementById('date');
+const timeEl = document.getElementById('time');
+const timeField = document.getElementById('timeField');
+const namesEl = document.getElementById('names');
+const field1 = document.getElementById('field1');
+const field2 = document.getElementById('field2');
+const eventNameField = document.getElementById('eventNameField');
+
+function formatDate(dateStr) {
+  if (!dateStr) return '';
+  const months = [
+    "января", "февраля", "марта", "апреля", "мая", "июня",
+    "июля", "августа", "сентября", "октября", "ноября", "декабря"
+  ];
+  const parts = dateStr.split('-'); 
+  if(parts.length < 3) return dateStr;
+  const year = parts[0];
+  const month = parseInt(parts[1]) - 1;
+  const day = parseInt(parts[2]);
+  
+  return `${day} ${months[month]} ${year} г.`;
+}
+
+const ADDRESS_STORAGE_KEY = 'fort_addresses';
+
+function loadSavedAddresses() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(ADDRESS_STORAGE_KEY) || '[]');
+    saved.forEach(addr => {
+      const opt = document.createElement('option');
+      opt.value = addr;
+      opt.textContent = addr;
+      addressSelect.insertBefore(opt, addressSelect.lastElementChild);
+    });
+  } catch (e) { console.error(e); }
+}
+
+function saveAddress(addr) {
+  try {
+    const saved = JSON.parse(localStorage.getItem(ADDRESS_STORAGE_KEY) || '[]');
+    if (!saved.includes(addr)) {
+      saved.push(addr);
+      localStorage.setItem(ADDRESS_STORAGE_KEY, JSON.stringify(saved));
+    }
+  } catch (e) { console.error(e); }
+}
+
+addressSelect.addEventListener('change', () => {
+  if (addressSelect.value === '__custom__') { // В вашем коде нет value __custom__, но на всякий случай
+    customAddressInput.style.display = 'block';
+    customAddressInput.required = true;
+  } else {
+    customAddressInput.style.display = 'none';
+    customAddressInput.required = false;
+  }
+});
+
+// Добавим логику для custom address, если вдруг он понадобится пользователю
+// (Для этого нужно добавить опцию "Ввести свой адрес" в HTML select)
+
+function renderDynamicFields() {
+  dynamicFields.innerHTML = '';
+  const type = typeEl.value;
+  if (type === 'school' || type === 'trip') {
+    dynamicFields.innerHTML = '<label>Номер класса</label><input id="input1" maxlength="5" required><label>Номер школы</label><input id="input2" maxlength="5" required>';
+  } else if (type === 'kindergarten') {
+    dynamicFields.innerHTML = '<label>Воспитанник сада</label><input id="input1" maxlength="14" required><label>Группа</label><input id="input2" maxlength="5" required>';
+  } else if (type === 'corporate') {
+    dynamicFields.innerHTML = '<label>Повод для корпоратива в дательном падеже</label><input id="eventNameInput" maxlength="50" required>';
+  } else if (type === 'kid' || type === 'adult') {
+    dynamicFields.innerHTML = `
+      <label>Имя именинника</label>
+      <input id="eventNameInput" required>
+    `;
+  }
+}
+
+function applyTemplate() {
+  const t = TEMPLATES[typeEl.value];
+  if (!t) return;
+  card.style.backgroundImage = 'url(' + t.bg + ')';
+  
+  const setPos = (el, cfg) => {
+    if(!cfg) { el.style.opacity = 0; return; }
+    // Позиционируем только через top/left, т.к. карточка масштабируется целиком через transform
+    el.style.top = cfg.top + 'px';
+    el.style.textAlign = cfg.align
+    el.style.left = cfg.left !== undefined ? cfg.left + 'px' : '';
+    el.style.opacity = 1; // Возвращаем видимость, если поле есть в конфиге
+  };
+
+  setPos(inviteEl, t.invite);
+  if(t.invite && t.invite.size) inviteEl.style.fontSize = t.invite.size + 'px';
+  
+  setPos(addressField, t.address);
+  setPos(dateField, t.date);
+  setPos(timeField, t.time);
+  setPos(field1, t.field1);
+  setPos(field2, t.field2);
+  setPos(eventNameField, t.eventName);
+  if(t.eventName && t.eventName.size) eventNameField.style.fontSize = t.eventName.size + 'px';
+}
+
+function updatePreview(name) {
+  if (!typeEl.value) return;
+  addressField.textContent = addressSelect.value;
+  dateField.textContent = formatDate(dateEl.value);
+  timeField.textContent = timeEl.value;
+
+  const input1 = document.getElementById('input1');
+  const input2 = document.getElementById('input2');
+  const eventNameInput = document.getElementById('eventNameInput');
+
+  field1.textContent = input1?.value || '';
+  field2.textContent = input2?.value || '';
+  eventNameField.textContent = eventNameInput?.value || '';
+
+  if (!name) {
+    const names = namesEl.value.split('\n').map(n => n.trim()).filter(Boolean);
+    name = names[0] || 'Имя Гостя';
+  }
+  inviteEl.textContent = name;
+}
+
+typeEl.addEventListener('change', () => { renderDynamicFields(); applyTemplate(); updatePreview(''); });
+document.getElementById('form').addEventListener('input', () => updatePreview(''));
+loadSavedAddresses();
+
+// --- ЛОГИКА СКАЧИВАНИЯ ---
+// --- ЛОГИКА СКАЧИВАНИЯ ---
+document.getElementById("download").addEventListener("click", async () => {
+
+  const names = document.getElementById("names").value
+      .split("\n")
+      .map(n => n.trim())
+      .filter(Boolean);
+
+  const payload = {
+    type: document.getElementById("type").value,
+    names: names,
+    address: document.getElementById("address").value,
+    date: document.getElementById("date").value,
+    time: document.getElementById("time").value,
+    eventName: document.getElementById("eventNameInput")?.value || "",
+    input1: document.getElementById("input1")?.value || "",
+    input2: document.getElementById("input2")?.value || ""
+  };
+
+  // !!! ЗДЕСЬ ИЗМЕНЕНИЕ !!!
+  // Указываем полный адрес сервера Python (порт 5000)
+  const response = await fetch("http://127.0.0.1:5000/generate", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+
+  if (!response.ok) {
+     alert("Ошибка при создании приглашений. Проверьте консоль сервера.");
+     return;
+  }
+
+  const blob = await response.blob();
+
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = "invites.zip";
+  link.click();
+});
+</script>
+
+</body>
+
+</html>
+

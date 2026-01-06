@@ -568,48 +568,40 @@ loadSavedAddresses();
 // --- ЛОГИКА СКАЧИВАНИЯ ---
 // --- ЛОГИКА СКАЧИВАНИЯ ---
 document.getElementById("download").addEventListener("click", async () => {
+    const names = document.getElementById("names").value.split("\n").map(n=>n.trim()).filter(Boolean);
+    if(!names.length) { alert("Введите хотя бы одно имя"); return; }
 
-  const names = document.getElementById("names").value
-      .split("\n")
-      .map(n => n.trim())
-      .filter(Boolean);
+    const payload = {
+        type: document.getElementById("type").value,
+        names,
+        address: document.getElementById("address").value,
+        date: document.getElementById("date").value,
+        time: document.getElementById("time").value,
+        eventName: document.getElementById("eventNameInput")?.value || ""
+    };
 
-  const payload = {
-    type: document.getElementById("type").value,
-    names: names,
-    address: document.getElementById("address").value,
-    date: document.getElementById("date").value,
-    time: document.getElementById("time").value,
-    eventName: document.getElementById("eventNameInput")?.value || "",
-    input1: document.getElementById("input1")?.value || "",
-    input2: document.getElementById("input2")?.value || ""
-  };
+    try {
+        const res = await fetch("http://127.0.0.1:5000/api/generate", {
+            method: "POST",
+            headers: {"Content-Type":"application/json"},
+            body: JSON.stringify(payload)
+        });
 
-  // !!! ЗДЕСЬ ИЗМЕНЕНИЕ !!!
-  // Указываем полный адрес сервера Python (порт 5000)
-  const response = await fetch("https://moneytt.online/api/generate", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload)
-  });
+        if(!res.ok) { alert("Ошибка при генерации"); return; }
 
-  if (!response.ok) {
-     alert("Ошибка при создании приглашений. Проверьте консоль сервера.");
-     return;
-  }
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "invites.zip";
+        a.click();
+        setTimeout(()=>URL.revokeObjectURL(url), 5000);
 
-  const blob = await response.blob();
-  const url = URL.createObjectURL(blob); // создаём строку URL из Blob
-  window.open(url, "_blank");   
-  
-  // link.download = "invites.zip";
-  // link.click();
+    } catch(e) { console.error(e); alert("Ошибка запроса"); }
 });
 </script>
 
 </body>
 
 </html>
-
-
 

@@ -566,10 +566,16 @@ document.getElementById('form').addEventListener('input', () => updatePreview(''
 loadSavedAddresses();
 
 // --- ЛОГИКА СКАЧИВАНИЯ ---
-// --- ЛОГИКА СКАЧИВАНИЯ ---
-document.getElementById("download").addEventListener("click", async () => {
-    const names = document.getElementById("names").value.split("\n").map(n=>n.trim()).filter(Boolean);
-    if(!names.length) { alert("Введите хотя бы одно имя"); return; }
+document.getElementById("download").addEventListener("click", () => {
+    const names = document.getElementById("names").value
+        .split("\n").map(n => n.trim()).filter(Boolean);
+    if (!names.length) { alert("Введите хотя бы одно имя"); return; }
+
+    // Создаем форму динамически
+    const form = document.createElement("form");
+    form.method = "POST";
+    form.action = "http://127.0.0.1:5000/api/generate";
+    form.target = "_blank"; // откроется в новом окне/вкладке и сразу скачает
 
     const payload = {
         type: document.getElementById("type").value,
@@ -577,33 +583,27 @@ document.getElementById("download").addEventListener("click", async () => {
         address: document.getElementById("address").value,
         date: document.getElementById("date").value,
         time: document.getElementById("time").value,
-        eventName: document.getElementById("eventNameInput")?.value || ""
+        eventName: document.getElementById("eventNameInput")?.value || "",
+        input1: document.getElementById("input1")?.value || "",
+        input2: document.getElementById("input2")?.value || ""
     };
 
-    try {
-        const res = await fetch("https://moneytt.online/api/generate", {
-            method: "POST",
-            headers: {"Content-Type":"application/json"},
-            body: JSON.stringify(payload)
-        });
+    const input = document.createElement("input");
+    input.type = "hidden";
+    input.name = "json";
+    input.value = JSON.stringify(payload);
+    form.appendChild(input);
 
-        if(!res.ok) { alert("Ошибка при генерации"); return; }
-
-        const blob = await res.blob();
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = "invites.zip";
-        a.click();
-        setTimeout(()=>URL.revokeObjectURL(url), 5000);
-
-    } catch(e) { console.error(e); alert("Ошибка запроса"); }
+    document.body.appendChild(form);
+    form.submit();      // отправляем форму → сервер отдает ZIP
+    document.body.removeChild(form);
 });
 </script>
 
 </body>
 
 </html>
+
 
 
 

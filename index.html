@@ -599,16 +599,17 @@ document.getElementById("download").addEventListener("click", async () => {
   }
 
   const blob = await response.blob();
-
-  const link = document.createElement("a");
-  link.href = URL.createObjectURL(blob);
-  link.download = "invites.zip";
-  link.click();
+  const url = URL.createObjectURL(blob); // создаём строку URL из Blob
+  window.open(url, "_blank");   
+  
+  // link.download = "invites.zip";
+  // link.click();
 });
 </script>
 
 </body>
 
 </html>
+
 
 

@@ -581,7 +581,7 @@ document.getElementById("download").addEventListener("click", async () => {
     };
 
     try {
-        const res = await fetch("http://127.0.0.1:5000/api/generate", {
+        const res = await fetch("https://moneytt.online/api/generate", {
             method: "POST",
             headers: {"Content-Type":"application/json"},
             body: JSON.stringify(payload)
@@ -604,4 +604,5 @@ document.getElementById("download").addEventListener("click", async () => {
 </body>
 
 </html>
+
 
